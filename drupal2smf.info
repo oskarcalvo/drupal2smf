@@ -1,0 +1,6 @@
+; $Id$ 
+name = Drupal2smf
+description = move Drupal basic forum to smf forum
+package = Hobby News
+version = 6.1
+core = 6.x

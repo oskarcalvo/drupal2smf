@@ -1,0 +1,712 @@
+<?php
+// $Id$ 
+
+/**
+ * @file: this file is to prepare a script to move the information from Drupal forum to smf forum.
+ * the version of the software should be: Drupal 6.17 and smf 1.1.1
+ */
+
+require_once ('drupal2smf.inc');
+
+/**
+ * Implementation of hook_block() 
+ */
+function drupal2smf_block($op='list', $delta=0, $edit=array()) {
+  switch ($op) {
+    case 'list':
+
+    case 'view':
+
+    case 'configure':
+
+    case 'save':
+
+  }
+}
+
+/**
+ * Implementation of hook_help() 
+ */
+function drupal2smf_help($path, $arg) {
+
+}
+/**
+ *
+ * Implementation of Hook Perm
+ *
+ *
+ */
+
+function drupal2smf_perm(){
+     return array('administer drupal2smf');
+
+
+}
+/*
+ *
+ *Implementation of  hook menu
+ *
+ */
+
+function drupal2smf_menu(){
+    
+    $items['admin/drupal2smf/movesmf'] = array(
+    'title' => t('Configure the smf ddbb settings'),
+    'description' => 'Configure the information to work with the smf database.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('drupal2smf_settings_form'),
+    'access arguments' => array('administer drupal2smf'),
+     );
+    $items['admin/drupal2smf/movesmf/ddbb'] = array(
+    'title' => 'smf ddbb settings ',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+    $items['admin/drupal2smf/movesmf/users'] = array(
+    'title' => t('Users to smf'),
+    'description' => 'Configure the information to work with the smf database.',
+    'page callback' => 'drupal2smf_move_users',
+    'access arguments' => array('administer drupal2smf'),
+    'type' =>MENU_LOCAL_TASK,
+        'weight' => -9,
+    );
+    $items['admin/drupal2smf/movesmf/categorias'] = array(
+    'title' => t('smf cat'),
+    'description' => 'Move the taxonomy estructure to smf cat.',
+    'page callback' => 'drupal2smf_move_cat',
+    'access arguments' => array('administer drupal2smf'),
+    'type' =>MENU_LOCAL_TASK,
+    'weight' => -8,
+    );
+    $items['admin/drupal2smf/movesmf/topics'] = array(
+    'title' => t('smf topics'),
+    'description' => 'Move the node to the smf topic.',
+    'page callback' => 'drupal2smf_move_topics',
+    'access arguments' => array('administer drupal2smf'),
+    'type' =>MENU_LOCAL_TASK,
+    'weight' => -7,
+    );
+    $items['admin/drupal2smf/movesmf/comments'] = array(
+    'title' => t('messages smf'),
+    'description' => 'Move drupal comments to the smf messages.',
+    'page callback' => 'drupal2smf_move_comment',
+    'access arguments' => array('administer drupal2smf'),
+    'type' =>MENU_LOCAL_TASK,
+    'weight' => -6,
+    );
+    $items['admin/drupal2smf/movesmf/moveid'] = array(
+    'title' => t('topics ids'),
+    'description' => 'Update ids from topics tables.',
+    'page callback' => 'drupal2smf_move_ids',
+    'access arguments' => array('administer drupal2smf'),
+    'type' =>MENU_LOCAL_TASK,
+    'weight' => -5,
+    );
+
+
+
+
+     return $items;
+}
+
+
+
+/**
+ * Builder of a form to collect SPIP's database credentials.
+ */
+function drupal2smf_settings_form(&$form_state) {
+  $form['db'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Database configuration'),
+  );
+  $form['db']['drupal2smf_dbhost'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Database host'),
+    '#default_value' => variable_get('smf_dbhost', 'localhost'),
+    '#required' => TRUE,
+  );
+  $form['db']['drupal2smf_dbname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Database name'),
+    '#default_value' => variable_get('smf_dbname', ''),
+    '#required' => TRUE,
+  );
+  $form['db']['drupal2smf_dbuser'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Database user'),
+    '#default_value' => variable_get('smf_dbuser', ''),
+    '#required' => TRUE,
+  );
+  $form['db']['drupal2smf_dbpass'] = array(
+    '#type' => 'password',
+    '#title' => t('Database password'),
+    '#default_value' => variable_get('smf_dbpass', ''),
+    '#required' => TRUE,
+  );
+  $form['db']['drupal2smf_prefix'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Table\'s prefix'),
+    '#default_value' => variable_get('smf_prefix', ''),
+  );
+
+  $form = system_settings_form($form);
+  return $form;
+}
+
+
+ /*
+  *
+  * We must move the #users table to members table,
+  * and also de #role tables to the groups table
+  *
+  */
+
+function drupal2smf_move_users(){
+
+  $link = smf_db_connect();
+  if ($link) {
+        mysql_query("truncate `members`");
+        //select all the user from drupal.
+        $query = db_query("SELECT   uid AS ID_MEMBER,
+                                    SUBSTRING(name, 1, 255) AS memberName,
+                                    SUBSTRING(name, 1, 255) AS realName,
+                                    mail AS emailAddress,
+                                    pass AS passwd,
+                                    access AS lastLogin,
+                                    IF(uid = '1' , 1, 4) AS ID_GROUP,
+                                    created AS dateRegistered
+                FROM {$from_prefix}users   where uid > 0;");
+
+        mysql_query("SET NAMES utf8");
+        while ($r = db_fetch_object($query)) {
+            if ($r->ID_MEMBER){
+                if($link){
+                 $user_name2 = mysql_real_escape_string($r->memberName);
+                 //$user_name = utf8_encode($user_name2);
+                 //TODO mysql_real_escape_string and check if there is or not the user.
+                    //if there is the user update it, if no insert it.
+
+                 $insertar = mysql_query("REPLACE INTO {$smf_prefix}`members` (ID_MEMBER, memberName, realName, emailAddress, passwd,  lastLogin, ID_GROUP,dateRegistered)
+                    VALUES ('$r->ID_MEMBER', '$user_name2', '$user_name2', '$r->emailAddress', '$r->passwd', '$r->lastLogin', '$r->ID_GROUP','$r->dateRegistered');",$link);
+
+                        if(!$insertar){
+                            drupal_set_message ('Invalid query: ' . mysql_error());
+                        }//fin de insertar mensaje de error
+
+                    }//comprobar hay conexión
+                      $output .= $r->ID_MEMBER.'<br>';
+            }//fin de comprobar que se ha devuelto algo $r->ID_MEMBER
+
+            }//fin de while
+
+
+
+          }//fin de la primera comprobación de conexión
+    
+
+    return $output;
+}
+
+/**
+ *
+ * We must move the forum containers to the smf cat sistems.
+ *
+ * Forum containers is stored in the vars table,
+ * Forum contents is stored in the Forum vocabulary.
+ *
+ *
+ */
+
+
+
+function drupal2smf_move_cat (){
+    /**
+     * The firs thing is check if there is containers in drupal forums,
+     * if there is not all the forums will be move to the general category of smf forum
+     *
+     * If there is containers, are the first to be built.
+     *
+     * After built the containers (categories in smf) we will build the taxonomies (boards in smf)
+     *
+     */
+    drupal2smf_create_categories_bridge();
+    drupal2smf_create_boards_table();
+    $link =  smf_db_connect();
+    $container = variable_get('forum_containers', NULL);
+    //first stept to build de containers - SMF categories.
+    if($link){
+    //if we have a container elements.
+    if ($container){
+          db_query("truncate {drupal2smf_categories_bridge}");
+          mysql_query("truncate `categories`");
+          mysql_query("SET NAMES utf8");
+        //if there is containers we will make the cat of smf
+          $cat = 1;
+          foreach ($container as $tid){
+            db_query("INSERT INTO {drupal2smf_categories_bridge}
+                      (bid,taxonomy,category)
+                      VALUES ('',%d,%d)",$tid,$cat);
+            $cat++;
+          }
+          foreach ($container as $tid){
+            //$tid -> is the tid of the forum containers, also are taxonomys.
+             $output .= $tid.'-';
+             
+
+              $term = taxonomy_get_term($tid);
+              $output .= $term->tid .'-';
+               $category = drupal2smf_check_new_ID_cat($tid);
+               //we get all the containers name $term->name, and the id $tid.
+                           
+                                $insertar = mysql_query("REPLACE INTO {$smf_prefix}`categories`
+                                                    (ID_CAT, name, catorder,canCollapse)
+                                                    VALUES ('$category->category','$term->name','0','0');",
+                                                    $link);
+                                $output .= $category->category.'/'.$term->name.' categorías <br>';
+                                   if(!$insertar){
+                                       drupal_set_message('Invalid query: ' . mysql_error());
+
+                           }//end check if there is problem with the insert
+               }
+               $output .= '<hr>';
+    }
+
+
+    //now is time to move the taxonomy from drupal to smf boards table.
+
+    $forum_vid = variable_get ('forum_nav_vocabulary', NULL);
+
+//second step build the forum taxonomy - smf boards
+    $query2 = db_query("    select td.tid as tid, td.name as name, td.description as description, th.parent as parent
+                            from {term_data} td inner join {term_hierarchy} th on (td.tid=th.tid)
+                            where td.vid=%s and th.parent>0", $forum_vid);
+    mysql_query("truncate `boards`");
+    db_query("truncate {drupal2smf_boards_bridge}");
+    mysql_query("SET NAMES UTF8");
+    $board_value = 1;
+    while ($boards = db_fetch_object($query2)){
+      $output .= '<br>'.$boards->parent .'elpadre<br>';
+      
+       db_query("INSERT INTO {drupal2smf_boards_bridge}
+                      (bid,tid,ID_BOARD)
+                      VALUES ('',%d,%d)",$boards->tid,$board_value);
+      $board_value ++;
+
+
+                //TODO check if has been moved the values or not.
+                //check the utf8 format. it gives problems
+            
+            $numTopics = drupal2smf_count_forum($boards->tid);
+            
+            $numPosts = drupal2smf_count_coments($boards->tid) + drupal2smf_count_forum($boards->tid);
+            
+            $newboard = drupal2smf_check_new_ID_board($boards->tid);
+            $newparent = drupal2smf_check_new_ID_cat($boards->parent);
+            $insertar2 = mysql_query("
+                                        REPLACE INTO {$smf_prefix}`boards`
+                                        (ID_BOARD,
+                                        ID_CAT,
+                                        childLevel,
+                                        ID_PARENT,
+                                        boardOrder,
+                                        ID_LAST_MSG,
+                                        ID_MSG_UPDATED,
+                                        memberGroups,
+                                        name,description,
+                                        numTopics,
+                                        numPosts,
+                                        countPosts,
+                                        ID_THEME,
+                                        permission_mode,
+                                        override_theme)
+                                         VALUES (
+                                        '$newboard->ID_BOARD',
+                                        '$newparent->category',
+                                        '0',
+                                        '0',
+                                        '0',
+                                        '0',
+                                        '0',
+                                        '-1,0',
+                                        '$boards->name',
+                                        '$boards->description',
+                                        '$numTopics',
+                                        '$numPosts',
+                                        '0',
+                                        '0',
+                                        '0',
+                                        '0');"
+                                        ,$link);
+                                        if(!$insertar2){
+                                               drupal_set_message('Invalid query: ' . mysql_error());
+
+                                         }//end check if there is problem with the insert
+
+               $output .= ' //newboard->ID_BOARD-> '. $newboard->ID_BOARD .' //newboard->category-> '. $newparent->category .' //boardas->parent-> '.$boards->parent.' ' ;
+               $output .= $boards->name.' <br>';
+          }
+                                                                    /// fin de depuración
+      }//end inf there is db connetcions
+    $output .= '<br>Due to the smf forum structure now we don\'t migrate it yet';
+    return $output;
+    //cache_clear_all();
+    //db_drop_table(&$ret, 'drupal2smf_categories_bridge');
+    //db_drop_table(&$ret, 'drupal2smf_boards_bridge');
+}
+
+
+/**
+ *
+ * Move the node->type forum to topis table and also move the nodes to messages.
+ * we will hold the node->nid.
+ *
+ *
+ */
+
+function drupal2smf_move_topics(){
+     $link =  smf_db_connect();
+     if($link){
+            $forum_topics = db_query("SELECT    n.type as type,
+                                                n.nid as ID_TOPIC,
+                                                n.sticky as isSticky,
+                                                f.tid as ID_BOARD,
+                                                n.nid as ID_FIRST_MSG,
+                                                n.uid as ID_MEMBER_STARTERD,
+                                                nc.totalcount as numViews
+                                                FROM {node} n inner join {forum} f ON (n.nid = f.nid) 
+                                                left join {comments} c ON (c.nid=n.nid)
+                                                right join node_counter nc ON (nc.nid=n.nid)
+                                                WHERE n.type='forum' group by n.nid;");
+           
+            if(!$forum_topics){
+                                       drupal_set_message('Invalid query select forum topics: ' . mysql_error());
+
+                                 }//end check if there is problem with the insert
+             $cuenta = 1;                     
+            mysql_query ("truncate `topics`");//clean the topics table to be able to insert well the options.
+            mysql_query("SET NAMES utf8");
+            while ($topics = db_fetch_object($forum_topics)){
+               
+               // get an object with the information we need to the topics
+               $id_last_value = drupal2smf_get_last_comment($topics->ID_TOPIC);
+               
+               
+               $id_count_comments = drupal2smf_get_count_comment($topics->ID_TOPIC);
+               
+               if( $id_count_comments->cantidad == 0){
+                $id_last_value->cid = $topics->ID_TOPIC;
+               }
+
+                
+
+                              $output .= '->   '.$id_last_value->cid .' <--la última respuesta-' . $id_count_comments->cantidad .' <-- cantidad comentarios <br>';
+
+
+               // get the las uid from the last autor comment
+               //$id_member_updated = drupal2smf_get_last_comment($topics->ID_TOPIC);
+               //get the count of total comments.
+               //$id_total_comments = drupal2smf_get_last_comment($topics->ID_TOPIC);
+               $output .= '<br> total de comentarios '. $id_count_comments .' total de comentarios <br>';
+               $newboard = drupal2smf_check_new_ID_board($topics->ID_BOARD);
+               $output .= $topics->ID_BOARD;
+               $output .= 'NUEVO ID '.$newboard->ID_BOARD.'  ';
+               
+                  $insert_topics = mysql_query("INSERT INTO {$smf_prefix}`topics` (
+                            ID_TOPIC ,
+                            isSticky,
+                            ID_BOARD,
+                            ID_FIRST_MSG,
+                            ID_LAST_MSG,
+                            ID_MEMBER_STARTED,
+                            ID_MEMBER_UPDATED,
+                            ID_POLL,
+                            numReplies,
+                            numViews,
+                            locked)
+		            VALUES (
+                            '$topics->ID_TOPIC',
+                            '$topics->isSticky',
+                            '$newboard->ID_BOARD',
+                            '$topics->ID_FIRST_MSG',
+                            '$id_last_value->cid',
+                            '$topics->ID_MEMBER_STARTERD',
+                            '$id_last_value->uid',
+                            '0',
+                            '$id_count_comments->cantidad',
+                            '$topics->numViews',
+                            '0'
+                            );",$link);
+                if(!$insert_topics){
+                  drupal_set_message('Invalid query insert into topics1: ' . mysql_error());
+                }//end check if there is problem with the insert
+                
+                mysql_free_result($insert_topics);
+
+                
+                //$output .= $topics->ID_TOPIC.'<br>';
+                /*
+                            $output .= $topics->ID_TOPIC.',';
+                            $output .= $topics->isSticky.',';
+                            $output .= $new_id_board->ID_BOARDS.' board , ';
+                            $output .= $topics->ID_FIRST_MSG.',';
+                            $output .= $id_last_msg->cid.',';
+                            $output .= $topics->ID_MEMBER_STARTERD.',';
+                            $output .= $id_member_updated->uid.',';
+                            $output .= $id_total_comments->replies.',';
+                            $output .= $topics->numViews.'<br>';
+                 */
+                 
+            $output .= $topics->type .'-'. $topics->ID_TOPIC.'-'.$topics->ID_FIRST_MSG.' cuenta '. $cuenta.'<br>';
+            $cuenta++;
+            
+            }//fin del while
+
+            //after insert the values in the topics table we insert again the values in the messages table.
+
+
+
+            $forum_nodes = db_query("SELECT
+                                    nr.nid AS ID_MSG,
+                                    nr.nid AS ID_TOPIC,
+                                    f.tid AS ID_BOARD,
+                                    nr.uid AS ID_MEMBER,
+                                    n.created AS posterTime,
+                                    n.changed AS modifiedTime,
+                                    n.title AS subject,
+                                    nr.body AS body,
+                                    u.name AS posterName, 
+                                    '' as posterIP,
+                                    '' as modifiedName,
+                                    u.mail AS posterEmail,
+                                    'xx' AS icon
+                                    FROM {node_revisions} AS nr
+                                    INNER JOIN {node} AS n ON (nr.nid = n.nid)
+                                    INNER JOIN {forum} AS f ON (n.nid = f.nid)
+                                    INNER JOIN {users} AS u ON (u.uid = n.uid)
+                                    WHERE n.type='forum'");
+
+             if(!$forum_nodes){
+                 drupal_set_message('Invalid query forum_nodes: ' . mysql_error());
+                }
+             mysql_query ("truncate `messages`");
+             mysql_query("SET NAMES utf8");
+             while($result = db_fetch_object($forum_nodes)){
+                 $id_last_value = drupal2smf_get_last_comment($result->ID_TOPIC);
+
+                 
+                 $body  = drupal2msf_clean_string($result->body);
+
+                 $title = mysql_real_escape_string($result->subject);
+
+                 $newboard = drupal2smf_check_new_ID_board($result->ID_BOARD);
+
+                 
+                 $insert_forum_nodes = mysql_query("REPLACE INTO {$smf_prefix}`messages`
+                                        (ID_MSG,
+                                         ID_TOPIC,
+                                         ID_BOARD,
+                                         posterTime,
+                                         ID_MEMBER,
+                                         ID_MSG_MODIFIED,
+                                         subject,
+                                         posterName,
+                                         posterEmail,
+                                         posterIP,
+                                         smileysEnabled,
+                                         modifiedTime,
+                                         modifiedName,
+                                         body,
+                                         icon)
+                                        VALUES(
+                                        '$result->ID_MSG',
+                                        '$result->ID_TOPIC',
+                                        '$newboard->ID_BOARD',
+                                        '$result->posterTime',
+                                        '$result->ID_MEMBER',
+                                        '$id_last_value->cid',
+                                        '$title',
+                                        '$result->posterName',
+                                        '$result->posterEmail',
+                                        'unknown',
+                                        '1',
+                                        '$result->modifiedTime',
+                                        '$result->modifiedName',
+                                        '$body',
+                                        '$result->icon');",$link);
+                 if(!$insert_forum_nodes){
+                 drupal_set_message('Invalid query insert: ' . mysql_error());
+                 }
+                 //$output .= $body;
+            
+             }
+                                                                                                       
+     }//end of the check if we connect with the ddbb
+
+     $output .= 'we are moving the topics from drupal to smf, good luck';
+
+
+     return $output;
+
+
+
+}
+
+/**
+ *
+ * @return <type> it return the output of the elements that are moved, also will show a drupal_set_message with errors
+ * of mysql.
+ *
+ */
+
+function drupal2smf_move_comment(){
+    $link =  smf_db_connect();
+    if($link){
+    $outpost .= 'you are moving the comments from drupal to smf, it can take time.';
+
+    $comments = db_query("SELECT
+                            nr.nid AS ID_TOPIC,
+                            f.tid AS ID_BOARD,
+                            c.uid AS ID_MEMBER,
+                            c.timestamp AS posterTime,
+                            c.subject AS subject,
+                            c.comment AS body,
+                            '' AS posterIP,
+                            '' AS modifiedName,
+                            c.name AS posterName,
+                            u.mail AS posterEmail,
+                            'xx' AS icon
+                            FROM {comments} AS c
+                            INNER JOIN {node} AS n ON (c.nid = n.nid)
+                            INNER JOIN {node_revisions} AS nr ON (nr.nid = n.nid)
+                            INNER JOIN {forum} AS f ON (n.nid = f.nid)
+                            INNER JOIN {users} AS u ON (u.uid=c.uid)
+                            WHERE n.type='forum'
+                            ORDER BY c.cid");
+    
+    if(!$comments){
+                 drupal_set_message('Invalid query selects comments: ' . mysql_error());
+                 }
+    mysql_query("SET NAMES utf8");
+    while ($result = db_fetch_object($comments)){
+        $title = mysql_real_escape_string($result->subject);
+        $result->posterName = mysql_real_escape_string($result->posterName);
+        $body  = drupal2msf_clean_string($result->body);
+        $body = mysql_real_escape_string($body);
+
+        $newboard = drupal2smf_check_new_ID_board($result->ID_BOARD);
+
+        $output .= 'old category '. $result->ID_BOARD .'  new id_board '. $newboard->ID_BOARD .'  ';
+
+        mysql_query("SET NAMES utf8");
+        $insert_comments = mysql_query("INSERT INTO {$smf_prefix}`messages`
+                                        (ID_MSG,
+                                        ID_TOPIC,
+                                        ID_BOARD,
+                                        posterTime,
+                                        ID_MEMBER,
+                                        ID_MSG_MODIFIED,
+                                        subject,
+                                        posterName,
+                                        posterEmail,
+                                        posterIP,
+                                        smileysEnabled,
+                                        modifiedTime,
+                                        modifiedName,
+                                        body,
+                                        icon)
+                                        VALUES(
+                                        '',
+                                        '$result->ID_TOPIC',
+                                        '$newboard->ID_BOARD',
+                                        '$result->posterTime',
+                                        '$result->ID_MEMBER',
+                                        '0',
+                                        '$title',
+                                        '$result->posterName',
+                                        '$result->posterEmail',
+                                        'unknown',
+                                        '$result->smileysEnabled',
+                                        '$result->posterTime',
+                                        '$result->posterName',
+                                        '$body',
+                                        '$result->icon');"
+                                        ,$link);
+        $id = mysql_insert_id();
+         if(!$insert_comments){
+                 drupal_set_message('Invalid query insert comments: ' . mysql_error());
+                 }
+        /*
+        $output .= $result->ID_TOPIC;
+        $output .= $newboard->ID_BOARD;
+        $output .= $result->posterTime;
+        $output .= $result->ID_MEMBER;
+        $output .=                                '0';
+        $output .=                                  $title;
+        $output .=  $result->posterName;
+        $output .=  $result->posterEmail;
+        $output .=                                'unknown';
+        $output .= $result->smileysEnabled;
+        $output .= $result->posterTime;
+        $output .= $result->posterName;
+        $output .= $body;
+        $output .= $result->icon.'<br>';
+    */
+                 
+         
+         $output .= '///'.$id.' <- este es el últimdo id<br>';
+         $insert_id_msg_modified = mysql_query("UPDATE {$smf_prefix}`messages`
+                                                SET ID_MSG_MODIFIED = $id
+                                                where ID_MSG=$id;",$link);
+         if(!$insert_id_msg_modified){
+                 drupal_set_message('Invalid query update id_msg_modified: ' . mysql_error());
+                 }
+        }//end while
+        
+    }//end if link
+
+    return $output;
+}
+
+
+
+/**
+ *
+ *
+ * función para arreglar los indices.
+ *
+ *
+ */
+
+function drupal2smf_move_ids(){
+  $link =  smf_db_connect();
+  if($link){
+    $output .= 'preparing to repair the topics table id';
+    
+    $topics = mysql_query("SELECT ID_TOPIC AS id FROM `topics`");
+    if(!$topics){
+      drupal_set_message('Invalid query selects topicss: ' . mysql_error());
+      }
+     while ($result = mysql_fetch_object($topics)){
+      //$idtopics = $topics->id;
+      $resultado = $result->id;
+      
+      $message = mysql_query("select ID_MSG as ID_MSG
+                                            from {$smf_prefix}`messages`
+                                            where `ID_TOPIC` = $result->id
+                                            ORDER BY ID_MSG DESC
+                                            LIMIT 0,1;",$link);
+      while ($lastmessage = mysql_fetch_object($message)){
+        $output .= '<br>el topico antes de actualizar '. $result->id .' el id_msn nuevo para el topico es -> '. $lastmessage->ID_MSG;
+        $update_topics = mysql_query("UPDATE {$smf_prefix}`topics`
+                                                  SET ID_LAST_MSG =  $lastmessage->ID_MSG
+                                                  where ID_TOPIC = $result->id;",$link);
+        if(!$update_topics){
+           drupal_set_message('Invalid query update topics las_msg: ' . mysql_error());
+        }
+      }
+    }
+  }//end $link
+  return $output;
+}
+
+

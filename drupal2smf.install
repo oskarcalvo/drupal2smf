@@ -1,0 +1,24 @@
+<?php
+// $Id$ 
+
+/**
+ * @file 
+ */
+
+/**
+ * Implementation of hook_install() 
+ */
+function drupal2smf_install() {
+
+}
+
+/**
+ * Implementation of hook_uninstall() 
+ */
+function drupal2smf_uninstall() {
+  $vars = array('drupal2smf_prefix', 'drupal2smf_dbhost', 'drupal2smf_dbname', 'drupal2smf_dbuser', 'drupal2smf_dbpass');
+  foreach ($vars as $var) {
+    variable_del($var);
+  }
+}
+
